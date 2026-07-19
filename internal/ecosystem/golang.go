@@ -78,7 +78,9 @@ func installedGoVersion() (string, error) {
 
 // reconcile compares a set of pins for the same ecosystem and reports
 // whether they disagree. Versions are compared as dotted prefixes: "1.24"
-// matches "1.24.3" (a go.mod directive doesn't pin a patch version).
+// matches "1.24.3" (a go.mod directive doesn't pin a patch version). When
+// drift is found, detail names every source and its version (not just the
+// first disagreeing pair), so a three-way mismatch is fully visible.
 func reconcile(pins []Pin) (drift bool, detail string) {
 	if len(pins) < 2 {
 		return false, ""
@@ -86,11 +88,19 @@ func reconcile(pins []Pin) (drift bool, detail string) {
 	base := pins[0]
 	for _, p := range pins[1:] {
 		if !versionsAgree(base.Version, p.Version) {
-			return true, base.Source + " says " + base.Version + ", " +
-				p.Source + " says " + p.Version
+			drift = true
+			break
 		}
 	}
-	return false, ""
+	if !drift {
+		return false, ""
+	}
+
+	parts := make([]string, len(pins))
+	for i, p := range pins {
+		parts[i] = p.Source + " says " + p.Version
+	}
+	return true, strings.Join(parts, ", ")
 }
 
 // versionsAgree reports whether two version strings are compatible,
