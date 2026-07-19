@@ -5,12 +5,12 @@ versions disagree — with each other, or with what's actually installed.**
 
 ```
 $ drift-check
-go.mod        says go1.24   →  CI pins go1.23   →  installed go1.22   ⚠ DRIFT
-.nvmrc        says 20.11.0  →  CI pins 20.11.0   →  installed 20.11.0  ✓
-.python-version says 3.12.1 →  CI pins 3.11.7    →  installed 3.12.1   ⚠ DRIFT
-Gemfile.lock  says 3.3.0    →  (no CI pin found) →  installed 3.3.0    ✓
+Go      go.mod=1.24  .github/workflows/ci.yml=1.23  installed=1.22.2               ⚠ DRIFT
+Node    .nvmrc=20.11.0  .github/workflows/ci.yml=20.11.0  installed=20.20.2        ⚠ DRIFT
+Python  .python-version=3.12.1  .github/workflows/ci.yml=3.11.7  installed=3.12.3  ⚠ DRIFT
+Ruby    Gemfile.lock=3.3.0                                                         ✓
 
-2 drifts found across 4 ecosystems.
+3 drift(s) found across 4 ecosystem(s).
 ```
 
 ## Why
@@ -47,22 +47,54 @@ It is **read-only**. It never rewrites a version file, never installs a
 toolchain, and never asks you to adopt a new version manager. It just tells
 you the truth about what's already there.
 
-## Planned features
+## Usage
 
-- **Ecosystem detectors**: `.nvmrc` / `package.json` engines (Node),
-  `.python-version` / `pyproject.toml` (Python), `go.mod` / `go.sum` (Go),
-  `.ruby-version` / `Gemfile.lock` (Ruby).
+```
+$ drift-check [flags] [path]
+```
+
+Defaults to the current directory. Exits `0` when nothing drifts (or no
+pin files are found at all), `1` when at least one ecosystem drifts — so
+it drops straight into a CI job as a gate:
+
+```yaml
+- run: go run github.com/ctkrug/drift-check@latest
+```
+
+Flags:
+
+- `--json` — emit a machine-readable report instead of text. Same exit
+  code semantics as the text mode. Pipe through `jq .` to inspect.
+
+## What's implemented
+
+- **Ecosystem detectors**: `go.mod` (Go), `.nvmrc` (Node), `.python-version`
+  (Python), and `.ruby-version` / `Gemfile.lock` (Ruby) — the latter two
+  tracked as distinct pins so a mismatch between them is named directly.
 - **Installed-toolchain resolution**: shells out to each ecosystem's version
-  command and normalizes the output for comparison.
+  command (`go version`, `node -v`, `python3 --version`, `ruby -v`) and
+  normalizes the output for comparison.
 - **CI pin extraction**: parses `.github/workflows/*.yml` for
-  `actions/setup-node`, `actions/setup-go`, `actions/setup-python`,
-  `ruby/setup-ruby`, and equivalents, pulling the pinned version out of each.
+  `actions/setup-go`, `actions/setup-node`, `actions/setup-python`, and
+  `ruby/setup-ruby`, pulling the pinned version out of each. A workflow file
+  that can't be parsed is skipped with a warning, not a crash.
 - **Drift report**: a single reconciled table (pin file vs. CI vs.
-  installed) with clear pass/fail per ecosystem, plus a non-zero exit code
-  when drift is found so it's CI-gateable.
+  installed) with clear pass/fail per ecosystem, columns sized to the
+  actual content so long CI paths don't break alignment.
 - **Machine-readable output**: `--json` for scripting and dashboards.
-- **Monorepo-aware**: walks subdirectories so a single run covers every
-  package/service in a polyglot repo, not just the root.
+- **Prefix-based version comparison**: a `go.mod` directive like `go 1.24`
+  agrees with any installed `1.24.x`, matching the same rule across all
+  four ecosystems.
+
+## Not yet implemented
+
+- **Monorepo-aware scanning**: currently checks the given directory only,
+  not nested `packages/`/`services/` subdirectories.
+- Graceful "toolchain not found" reporting (currently that source is
+  omitted rather than explicitly marked).
+- `go install` / release binaries.
+
+See [`docs/BACKLOG.md`](docs/BACKLOG.md) for the full build plan.
 
 ## Stack
 
@@ -72,7 +104,10 @@ can drop anywhere — no interpreter, no package manager, no install step.
 
 ## Status
 
-Early scaffold. See [`docs/VISION.md`](docs/VISION.md) for the design and
+Core reconciliation across all four ecosystems is done and tested (Epics 1
+and 2 in the backlog). Monorepo directory-walking, robustness against
+missing/malformed input, and distribution polish are next. See
+[`docs/VISION.md`](docs/VISION.md) for the design and
 [`docs/BACKLOG.md`](docs/BACKLOG.md) for the build plan.
 
 ## License
