@@ -40,6 +40,10 @@ func (d *GoDetector) Detect(root string) (*Result, error) {
 
 	pins := []Pin{{Source: "go.mod", Version: pinned}}
 
+	if ciPins := findWorkflowPins(root, "actions/setup-go", "go-version"); len(ciPins) > 0 {
+		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
+	}
+
 	if installed, err := installedGoVersion(); err == nil && installed != "" {
 		pins = append(pins, Pin{Source: "installed", Version: installed})
 	}
