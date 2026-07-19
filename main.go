@@ -3,23 +3,48 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/ctkrug/drift-check/internal/ecosystem"
 	"github.com/ctkrug/drift-check/internal/report"
 )
 
+const usageText = `drift-check [flags] [path]
+
+Audits a polyglot monorepo and reports every place a pinned version file
+disagrees with what's installed or with CI. Defaults to the current
+directory. Exits non-zero when drift is found.
+
+Flags:
+  --json    output a machine-readable JSON report instead of text
+`
+
 func main() {
-	root := "."
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "-h", "--help":
-			printUsage()
-			return
-		default:
-			root = os.Args[1]
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run executes the CLI and returns the process exit code: 0 when no drift
+// (or no pin files) is found, 1 when drift is found or a detector fails,
+// 2 on a usage error.
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("drift-check", flag.ContinueOnError)
+	fs.SetOutput(stdout)
+	fs.Usage = func() { fmt.Fprint(stdout, usageText) }
+	jsonOutput := fs.Bool("json", false, "output a machine-readable JSON report")
+
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
 		}
+		return 2
+	}
+
+	root := "."
+	if fs.NArg() > 0 {
+		root = fs.Arg(0)
 	}
 
 	detectors := []ecosystem.Detector{
@@ -33,8 +58,8 @@ func main() {
 	for _, d := range detectors {
 		res, err := d.Detect(root)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "drift-check: %s: %v\n", d.Name(), err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "drift-check: %s: %v\n", d.Name(), err)
+			return 1
 		}
 		if res != nil {
 			results = append(results, res)
@@ -42,20 +67,22 @@ func main() {
 	}
 
 	if len(results) == 0 {
-		fmt.Println("no version pin files found.")
-		return
+		if *jsonOutput {
+			report.WriteJSONEmpty(stdout)
+		} else {
+			fmt.Fprintln(stdout, "no version pin files found.")
+		}
+		return 0
 	}
 
-	drifted := report.Write(os.Stdout, results)
+	var drifted int
+	if *jsonOutput {
+		drifted = report.WriteJSON(stdout, results)
+	} else {
+		drifted = report.Write(stdout, results)
+	}
 	if drifted > 0 {
-		os.Exit(1)
+		return 1
 	}
-}
-
-func printUsage() {
-	fmt.Println(`drift-check [path]
-
-Audits a polyglot monorepo and reports every place a pinned version file
-disagrees with what's installed or with CI. Defaults to the current
-directory. Exits non-zero when drift is found.`)
+	return 0
 }
