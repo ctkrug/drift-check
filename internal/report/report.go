@@ -11,10 +11,24 @@ import (
 	"github.com/ctkrug/drift-check/internal/ecosystem"
 )
 
+// row holds one ecosystem's rendered line, pre-computed so column widths
+// can be measured against every row's actual content before printing.
+type row struct {
+	ecosystem string
+	sources   string
+	status    string
+}
+
 // Write renders results to w, one line per ecosystem, and returns the
-// number of ecosystems with drift.
+// number of ecosystems with drift. Column widths are sized to the widest
+// value actually present in this run, so a long CI workflow path or
+// version string in one ecosystem's pins doesn't misalign the status
+// column for the others.
 func Write(w io.Writer, results []*ecosystem.Result) int {
 	drifted := 0
+	var rows []row
+	ecoWidth, sourcesWidth := 0, 0
+
 	for _, r := range results {
 		if r == nil {
 			continue
@@ -25,11 +39,23 @@ func Write(w io.Writer, results []*ecosystem.Result) int {
 			drifted++
 		}
 
-		sources := make([]string, len(r.Pins))
+		sourceParts := make([]string, len(r.Pins))
 		for i, p := range r.Pins {
-			sources[i] = fmt.Sprintf("%s=%s", p.Source, p.Version)
+			sourceParts[i] = fmt.Sprintf("%s=%s", p.Source, p.Version)
 		}
-		fmt.Fprintf(w, "%-8s %-40s %s\n", r.Ecosystem, strings.Join(sources, "  "), status)
+		sources := strings.Join(sourceParts, "  ")
+
+		rows = append(rows, row{ecosystem: r.Ecosystem, sources: sources, status: status})
+		if len(r.Ecosystem) > ecoWidth {
+			ecoWidth = len(r.Ecosystem)
+		}
+		if len(sources) > sourcesWidth {
+			sourcesWidth = len(sources)
+		}
+	}
+
+	for _, l := range rows {
+		fmt.Fprintf(w, "%-*s  %-*s  %s\n", ecoWidth, l.ecosystem, sourcesWidth, l.sources, l.status)
 	}
 
 	if drifted == 0 {
