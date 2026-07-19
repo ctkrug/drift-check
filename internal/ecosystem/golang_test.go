@@ -3,6 +3,7 @@ package ecosystem
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -70,6 +71,23 @@ func TestReconcile_DetectsDrift(t *testing.T) {
 	}
 	if detail == "" {
 		t.Fatal("expected a non-empty detail explaining the drift")
+	}
+}
+
+func TestReconcile_ThreeWayDriftNamesEverySource(t *testing.T) {
+	pins := []Pin{
+		{Source: "go.mod", Version: "1.24"},
+		{Source: "ci", Version: "1.23"},
+		{Source: "installed", Version: "1.22"},
+	}
+	drift, detail := reconcile(pins)
+	if !drift {
+		t.Fatal("expected drift to be detected")
+	}
+	for _, want := range []string{"go.mod says 1.24", "ci says 1.23", "installed says 1.22"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("detail %q missing %q", detail, want)
+		}
 	}
 }
 
