@@ -41,6 +41,51 @@ func TestGoDetector_ParsesDirective(t *testing.T) {
 	}
 }
 
+func TestGoDetector_ThreeWayIncludesCIPin(t *testing.T) {
+	dir := t.TempDir()
+	writeGoMod(t, dir, "go 1.24")
+	writeWorkflow(t, dir, "ci.yml", `
+jobs:
+  test:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+`)
+
+	res, err := NewGoDetector().Detect(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Pins) != 3 {
+		t.Fatalf("expected 3 pins (go.mod, ci, installed), got %d: %+v", len(res.Pins), res.Pins)
+	}
+	if res.Pins[1].Source != ".github/workflows/ci.yml" || res.Pins[1].Version != "1.23" {
+		t.Fatalf("unexpected ci pin: %+v", res.Pins[1])
+	}
+	if !res.Drift {
+		t.Fatal("expected drift: go.mod=1.24, ci=1.23")
+	}
+	if !strings.Contains(res.Detail, "go.mod says 1.24") || !strings.Contains(res.Detail, "1.23") {
+		t.Errorf("detail %q missing expected sources", res.Detail)
+	}
+}
+
+func TestGoDetector_NoWorkflowFileOmitsCIPin(t *testing.T) {
+	dir := t.TempDir()
+	writeGoMod(t, dir, "go 1.24")
+
+	res, err := NewGoDetector().Detect(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, p := range res.Pins {
+		if p.Source == "ci" || strings.Contains(p.Source, "workflows") {
+			t.Fatalf("did not expect a ci pin, got %+v", res.Pins)
+		}
+	}
+}
+
 func TestVersionsAgree(t *testing.T) {
 	cases := []struct {
 		a, b string
