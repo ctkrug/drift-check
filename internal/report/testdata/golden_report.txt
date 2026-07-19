@@ -1,0 +1,6 @@
+Go      go.mod=1.24  .github/workflows/ci.yml=1.23  installed=1.22.2               ⚠ DRIFT
+Node    .nvmrc=20.11.0  installed=20.11.0                                          ✓
+Python  .python-version=3.12.1  .github/workflows/ci.yml=3.11.7  installed=3.12.1  ⚠ DRIFT
+Ruby    .ruby-version=3.3.0  Gemfile.lock=3.3.0                                    ✓
+
+2 drift(s) found across 4 ecosystem(s).
