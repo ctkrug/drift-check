@@ -8,7 +8,7 @@ moment — it must be reachable with only Epic 1 built.
 Get from "reads go.mod" to "a real three-way drift report a user can run
 in their own repo and trust."
 
-- [ ] **Run drift-check in a real polyglot monorepo and get an instant
+- [x] **Run drift-check in a real polyglot monorepo and get an instant
       three-way Go drift report.** (WOW MOMENT)
   - Given a fixture repo with `go.mod` (`go 1.24`), a GitHub Actions
     workflow pinning `actions/setup-go@v5` to `go-version: "1.23"`, and
@@ -19,7 +19,7 @@ in their own repo and trust."
   - Running `drift-check` in a repo where go.mod, CI, and installed all
     agree exits `0` and prints no drift.
 
-- [ ] **Parse GitHub Actions workflow files for version-setting steps.**
+- [x] **Parse GitHub Actions workflow files for version-setting steps.**
   - Given a `.github/workflows/*.yml` using `actions/setup-go` with a
     `go-version` input, drift-check extracts that version as a `ci`-source
     pin for the Go ecosystem.
@@ -29,14 +29,14 @@ in their own repo and trust."
   - Malformed or unparseable YAML in a workflow file is skipped with a
     warning to stderr, not a crash.
 
-- [ ] **Add `--json` output for scripting and dashboards.**
+- [x] **Add `--json` output for scripting and dashboards.**
   - `drift-check --json` on a repo with one drifted ecosystem produces
     valid JSON (verified by piping through `jq .`) containing the
     ecosystem name, every pin's source and version, and a `drift` boolean.
   - Exit code behavior (`0` clean, `1` drift found) is identical between
     text and JSON output modes.
 
-- [ ] **Exit non-zero exactly when drift is found, usable as a CI gate.**
+- [x] **Exit non-zero exactly when drift is found, usable as a CI gate.**
   - A repo with zero drifted ecosystems exits `0`.
   - A repo with at least one drifted ecosystem exits `1`.
   - A repo with no recognized pin files at all (nothing to check) exits
@@ -47,7 +47,7 @@ in their own repo and trust."
 Bring the three stub detectors up to the same reconciliation depth as Go:
 pin file vs. installed vs. CI, not just presence detection.
 
-- [ ] **Reconcile Node version across .nvmrc, `node -v`, and CI.**
+- [x] **Reconcile Node version across .nvmrc, `node -v`, and CI.**
   - A repo with `.nvmrc` containing `20.11.0` and an installed Node
     reported by `node -v` as `v20.11.0` shows no drift.
   - A mismatch between `.nvmrc` and installed Node is reported with both
@@ -55,7 +55,7 @@ pin file vs. installed vs. CI, not just presence detection.
   - `actions/setup-node`'s `node-version` input is parsed as the CI pin,
     same as `setup-go` in Epic 1.
 
-- [ ] **Reconcile Python version across .python-version, `python
+- [x] **Reconcile Python version across .python-version, `python
       --version`, and CI.**
   - A repo with `.python-version` containing `3.12.1` and an installed
     interpreter reporting `Python 3.12.1` shows no drift.
@@ -64,7 +64,7 @@ pin file vs. installed vs. CI, not just presence detection.
   - `actions/setup-python`'s `python-version` input is parsed as the CI
     pin.
 
-- [ ] **Reconcile Ruby version across .ruby-version, Gemfile.lock, `ruby
+- [x] **Reconcile Ruby version across .ruby-version, Gemfile.lock, `ruby
       -v`, and CI.**
   - A repo with both `.ruby-version` and a `Gemfile.lock` `RUBY VERSION`
     stanza pinning different patch versions is reported as drifted between
@@ -73,7 +73,7 @@ pin file vs. installed vs. CI, not just presence detection.
   - A repo with only `Gemfile.lock` (no `.ruby-version`) still reconciles
     against installed and CI.
 
-- [ ] **Align report formatting across all four ecosystems.**
+- [x] **Align report formatting across all four ecosystems.**
   - Running drift-check on a fixture with all four ecosystems present
     produces a report where every ecosystem's line is legible and
     consistently formatted (no column misalignment from long version
