@@ -16,7 +16,8 @@ func writeNvmrc(t *testing.T, dir, version string) {
 }
 
 func TestNodeDetector_NoNvmrc(t *testing.T) {
-	res, err := NewNodeDetector().Detect(t.TempDir())
+	dir := t.TempDir()
+	res, err := NewNodeDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +30,7 @@ func TestNodeDetector_EmptyNvmrcTreatedAsAbsent(t *testing.T) {
 	dir := t.TempDir()
 	writeNvmrc(t, dir, "")
 
-	res, err := NewNodeDetector().Detect(dir)
+	res, err := NewNodeDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,7 +51,7 @@ func TestNodeDetector_NoDriftAgainstInstalled(t *testing.T) {
 	dir := t.TempDir()
 	writeNvmrc(t, dir, installed)
 
-	res, err := NewNodeDetector().Detect(dir)
+	res, err := NewNodeDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,7 +72,7 @@ jobs:
           node-version: "18.19.0"
 `)
 
-	res, err := NewNodeDetector().Detect(dir)
+	res, err := NewNodeDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestNodeDetector_ReportsMissingInstalledToolchain(t *testing.T) {
 	dir := t.TempDir()
 	writeNvmrc(t, dir, "20.11.0")
 
-	res, err := NewNodeDetector().Detect(dir)
+	res, err := NewNodeDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -16,8 +16,8 @@ func NewNodeDetector() *NodeDetector { return &NodeDetector{} }
 
 func (d *NodeDetector) Name() string { return "Node" }
 
-func (d *NodeDetector) Detect(root string) (*Result, error) {
-	nvmrc := filepath.Join(root, ".nvmrc")
+func (d *NodeDetector) Detect(projectRoot, repositoryRoot string) (*Result, error) {
+	nvmrc := filepath.Join(projectRoot, ".nvmrc")
 	data, err := os.ReadFile(nvmrc)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -32,8 +32,8 @@ func (d *NodeDetector) Detect(root string) (*Result, error) {
 
 	pins := []Pin{{Source: ".nvmrc", Version: version}}
 
-	if ciPins := findWorkflowPins(root, "actions/setup-node", "node-version"); len(ciPins) > 0 {
-		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
+	for _, ciPin := range findWorkflowPins(repositoryRoot, "actions/setup-node", "node-version") {
+		pins = append(pins, Pin{Source: ciPin.source, Version: ciPin.version})
 	}
 
 	installed, err := installedNodeVersion()

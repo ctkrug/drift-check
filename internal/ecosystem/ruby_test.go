@@ -23,7 +23,8 @@ func writeGemfileLock(t *testing.T, dir, rubyVersion string) {
 }
 
 func TestRubyDetector_NoPinFiles(t *testing.T) {
-	res, err := NewRubyDetector().Detect(t.TempDir())
+	dir := t.TempDir()
+	res, err := NewRubyDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -37,7 +38,7 @@ func TestRubyDetector_RubyVersionAndGemfileLockConflictNamedSeparately(t *testin
 	writeRubyVersion(t, dir, "3.2.0")
 	writeGemfileLock(t, dir, "3.3.0p0")
 
-	res, err := NewRubyDetector().Detect(dir)
+	res, err := NewRubyDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -70,7 +71,7 @@ jobs:
           ruby-version: "3.1.0"
 `)
 
-	res, err := NewRubyDetector().Detect(dir)
+	res, err := NewRubyDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -97,7 +98,7 @@ jobs:
           ruby-version: "3.3.0"
 `)
 
-	res, err := NewRubyDetector().Detect(dir)
+	res, err := NewRubyDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -145,7 +146,7 @@ func TestRubyDetector_ReportsMissingInstalledToolchain(t *testing.T) {
 	dir := t.TempDir()
 	writeRubyVersion(t, dir, "3.3.0")
 
-	res, err := NewRubyDetector().Detect(dir)
+	res, err := NewRubyDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

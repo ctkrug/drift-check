@@ -150,6 +150,28 @@ jobs:
 	}
 }
 
+func TestFindWorkflowPins_MultipleStepsInOneFile(t *testing.T) {
+	dir := t.TempDir()
+	writeWorkflow(t, dir, "ci.yml", `
+jobs:
+  test-old:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+  test-new:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+`)
+
+	pins := findWorkflowPins(dir, "actions/setup-go", "go-version")
+	if len(pins) != 2 || pins[0].version != "1.23" || pins[1].version != "1.24" {
+		t.Fatalf("expected both setup-go pins, got %+v", pins)
+	}
+}
+
 func TestFindWorkflowPins_MalformedFileSkippedWithoutCrashing(t *testing.T) {
 	dir := t.TempDir()
 	// A single line far larger than bufio.Scanner's default token size

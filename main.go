@@ -69,7 +69,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	var results []*ecosystem.Result
 	for _, projectRoot := range projectRoots {
 		for _, d := range detectors {
-			res, err := d.Detect(projectRoot)
+			res, err := d.Detect(projectRoot, root)
 			if err != nil {
 				fmt.Fprintf(stderr, "drift-check: %s: %v\n", d.Name(), err)
 				return 1
@@ -111,7 +111,8 @@ func prefixResultSources(res *ecosystem.Result, root, projectRoot string) {
 	}
 	prefix := filepath.ToSlash(rel)
 	for i := range res.Pins {
-		if res.Pins[i].Source != "installed" {
+		if res.Pins[i].Source != "installed" &&
+			!strings.HasPrefix(res.Pins[i].Source, ".github/workflows/") {
 			res.Pins[i].Source = prefix + "/" + res.Pins[i].Source
 		}
 	}

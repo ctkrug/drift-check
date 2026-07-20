@@ -1,7 +1,7 @@
-Go      go.mod=1.24  .github/workflows/ci.yml=1.24  installed=1.24.3           ✓
-Node    .nvmrc=20.11.0  .github/workflows/ci.yml=20.11.0  installed=20.11.0    ✓
-Python  .python-version=3.12  .github/workflows/ci.yml=3.12  installed=3.12.1  ✓
-Ruby    .ruby-version=3.3.0  .github/workflows/ci.yml=3.3.0  installed=3.3.0   ✓
-Go      services/legacy/go.mod=1.23  installed=1.24.3                          ⚠ DRIFT
+Go      go.mod=1.24  .github/workflows/ci.yml=1.24  installed=1.24.3                  ✓
+Node    .nvmrc=20.11.0  .github/workflows/ci.yml=20.11.0  installed=20.11.0           ✓
+Python  .python-version=3.12  .github/workflows/ci.yml=3.12  installed=3.12.1         ✓
+Ruby    .ruby-version=3.3.0  .github/workflows/ci.yml=3.3.0  installed=3.3.0          ✓
+Go      services/legacy/go.mod=1.23  .github/workflows/ci.yml=1.24  installed=1.24.3  ⚠ DRIFT
 
 1 drift(s) found across 5 ecosystem(s).

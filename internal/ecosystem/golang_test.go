@@ -16,7 +16,8 @@ func writeGoMod(t *testing.T, dir, directive string) {
 }
 
 func TestGoDetector_NoGoMod(t *testing.T) {
-	res, err := NewGoDetector().Detect(t.TempDir())
+	dir := t.TempDir()
+	res, err := NewGoDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +30,7 @@ func TestGoDetector_ParsesDirective(t *testing.T) {
 	dir := t.TempDir()
 	writeGoMod(t, dir, "go 1.24")
 
-	res, err := NewGoDetector().Detect(dir)
+	res, err := NewGoDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -53,7 +54,7 @@ jobs:
           go-version: "1.23"
 `)
 
-	res, err := NewGoDetector().Detect(dir)
+	res, err := NewGoDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,11 +72,74 @@ jobs:
 	}
 }
 
+func TestGoDetector_UsesRepositoryWorkflowsForNestedProject(t *testing.T) {
+	repositoryRoot := t.TempDir()
+	projectRoot := filepath.Join(repositoryRoot, "services", "api")
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeGoMod(t, projectRoot, "go 1.24")
+	writeWorkflow(t, repositoryRoot, "ci.yml", `
+jobs:
+  test:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+`)
+
+	res, err := NewGoDetector().Detect(projectRoot, repositoryRoot)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Pins) < 2 || res.Pins[1].Source != ".github/workflows/ci.yml" || res.Pins[1].Version != "1.23" {
+		t.Fatalf("nested project did not include repository workflow pin: %+v", res.Pins)
+	}
+}
+
+func TestGoDetector_IncludesEveryWorkflowPin(t *testing.T) {
+	dir := t.TempDir()
+	writeGoMod(t, dir, "go 1.24")
+	writeWorkflow(t, dir, "ci.yml", `
+jobs:
+  test:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+`)
+	writeWorkflow(t, dir, "release.yml", `
+jobs:
+  release:
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+`)
+
+	res, err := NewGoDetector().Detect(dir, dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		".github/workflows/ci.yml":      "1.23",
+		".github/workflows/release.yml": "1.22",
+	}
+	for _, pin := range res.Pins {
+		if version, ok := want[pin.Source]; ok && pin.Version == version {
+			delete(want, pin.Source)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing workflow pins %v from %+v", want, res.Pins)
+	}
+}
+
 func TestGoDetector_NoWorkflowFileOmitsCIPin(t *testing.T) {
 	dir := t.TempDir()
 	writeGoMod(t, dir, "go 1.24")
 
-	res, err := NewGoDetector().Detect(dir)
+	res, err := NewGoDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,7 +156,7 @@ func TestGoDetector_ReportsMissingInstalledToolchain(t *testing.T) {
 	dir := t.TempDir()
 	writeGoMod(t, dir, "go 1.24")
 
-	res, err := NewGoDetector().Detect(dir)
+	res, err := NewGoDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

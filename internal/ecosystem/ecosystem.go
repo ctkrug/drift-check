@@ -29,9 +29,10 @@ type Result struct {
 type Detector interface {
 	// Name is the ecosystem's display name, e.g. "Go", "Node".
 	Name() string
-	// Detect scans root and returns a reconciled Result, or nil if this
-	// ecosystem has no pin files present in root.
-	Detect(root string) (*Result, error)
+	// Detect scans projectRoot and returns a reconciled Result, or nil if
+	// that project has no pin files for this ecosystem. Workflow pins are
+	// read from repositoryRoot so nested projects share the repository's CI.
+	Detect(projectRoot, repositoryRoot string) (*Result, error)
 }
 
 const missingToolchainVersion = "not found"

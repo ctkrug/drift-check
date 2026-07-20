@@ -38,19 +38,21 @@ func findWorkflowPins(root, actionPrefix, inputKey string) []workflowPin {
 			continue
 		}
 		path := filepath.Join(dir, name)
-		version, err := parseWorkflowFile(path, actionPrefix, inputKey)
+		versions, err := parseWorkflowFile(path, actionPrefix, inputKey)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "drift-check: warning: skipping %s: %v\n", path, err)
 			continue
 		}
-		if version == "" {
+		if len(versions) == 0 {
 			continue
 		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			rel = path
 		}
-		pins = append(pins, workflowPin{source: filepath.ToSlash(rel), version: version})
+		for _, version := range versions {
+			pins = append(pins, workflowPin{source: filepath.ToSlash(rel), version: version})
+		}
 	}
 	return pins
 }
@@ -58,11 +60,11 @@ func findWorkflowPins(root, actionPrefix, inputKey string) []workflowPin {
 // parseWorkflowFile is a narrow, line-oriented scanner for the specific
 // shape a GitHub Actions step takes — not a general YAML parser. It looks
 // for a "uses: <actionPrefix>..." line, then the sibling "with:" block that
-// follows it, and returns the value of inputKey from within that block.
-func parseWorkflowFile(path, actionPrefix, inputKey string) (string, error) {
+// follows it, and returns every inputKey value found in those blocks.
+func parseWorkflowFile(path, actionPrefix, inputKey string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer f.Close()
 
@@ -72,6 +74,7 @@ func parseWorkflowFile(path, actionPrefix, inputKey string) (string, error) {
 	withActive := false
 	withIndent := 0
 
+	var versions []string
 	for scanner.Scan() {
 		raw := scanner.Text()
 		if strings.TrimSpace(raw) == "" || strings.HasPrefix(strings.TrimSpace(raw), "#") {
@@ -101,14 +104,15 @@ func parseWorkflowFile(path, actionPrefix, inputKey string) (string, error) {
 
 		if withActive {
 			if key, value, ok := splitKV(rest); ok && key == inputKey {
-				return value, nil
+				versions = append(versions, value)
+				withActive = false
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return nil, err
 	}
-	return "", nil
+	return versions, nil
 }
 
 // isActionReference accepts a setup action only when actionPrefix is the

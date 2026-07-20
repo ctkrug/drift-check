@@ -19,8 +19,8 @@ func (d *GoDetector) Name() string { return "Go" }
 
 var goModDirectiveRe = regexp.MustCompile(`^go\s+(\d+\.\d+(?:\.\d+)?)`)
 
-func (d *GoDetector) Detect(root string) (*Result, error) {
-	modPath := filepath.Join(root, "go.mod")
+func (d *GoDetector) Detect(projectRoot, repositoryRoot string) (*Result, error) {
+	modPath := filepath.Join(projectRoot, "go.mod")
 	f, err := os.Open(modPath)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -40,8 +40,8 @@ func (d *GoDetector) Detect(root string) (*Result, error) {
 
 	pins := []Pin{{Source: "go.mod", Version: pinned}}
 
-	if ciPins := findWorkflowPins(root, "actions/setup-go", "go-version"); len(ciPins) > 0 {
-		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
+	for _, ciPin := range findWorkflowPins(repositoryRoot, "actions/setup-go", "go-version") {
+		pins = append(pins, Pin{Source: ciPin.source, Version: ciPin.version})
 	}
 
 	installed, err := installedGoVersion()

@@ -20,10 +20,10 @@ func NewRubyDetector() *RubyDetector { return &RubyDetector{} }
 
 func (d *RubyDetector) Name() string { return "Ruby" }
 
-func (d *RubyDetector) Detect(root string) (*Result, error) {
+func (d *RubyDetector) Detect(projectRoot, repositoryRoot string) (*Result, error) {
 	var pins []Pin
 
-	rubyVersionFile := filepath.Join(root, ".ruby-version")
+	rubyVersionFile := filepath.Join(projectRoot, ".ruby-version")
 	data, err := os.ReadFile(rubyVersionFile)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -32,7 +32,7 @@ func (d *RubyDetector) Detect(root string) (*Result, error) {
 		pins = append(pins, Pin{Source: ".ruby-version", Version: v})
 	}
 
-	gemfileVersion, err := parseGemfileLockRubyVersion(filepath.Join(root, "Gemfile.lock"))
+	gemfileVersion, err := parseGemfileLockRubyVersion(filepath.Join(projectRoot, "Gemfile.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +44,8 @@ func (d *RubyDetector) Detect(root string) (*Result, error) {
 		return nil, nil
 	}
 
-	if ciPins := findWorkflowPins(root, "ruby/setup-ruby", "ruby-version"); len(ciPins) > 0 {
-		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
+	for _, ciPin := range findWorkflowPins(repositoryRoot, "ruby/setup-ruby", "ruby-version") {
+		pins = append(pins, Pin{Source: ciPin.source, Version: ciPin.version})
 	}
 
 	installed, err := installedRubyVersion()

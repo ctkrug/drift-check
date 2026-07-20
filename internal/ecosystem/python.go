@@ -17,8 +17,8 @@ func NewPythonDetector() *PythonDetector { return &PythonDetector{} }
 
 func (d *PythonDetector) Name() string { return "Python" }
 
-func (d *PythonDetector) Detect(root string) (*Result, error) {
-	pv := filepath.Join(root, ".python-version")
+func (d *PythonDetector) Detect(projectRoot, repositoryRoot string) (*Result, error) {
+	pv := filepath.Join(projectRoot, ".python-version")
 	data, err := os.ReadFile(pv)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -33,8 +33,8 @@ func (d *PythonDetector) Detect(root string) (*Result, error) {
 
 	pins := []Pin{{Source: ".python-version", Version: version}}
 
-	if ciPins := findWorkflowPins(root, "actions/setup-python", "python-version"); len(ciPins) > 0 {
-		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
+	for _, ciPin := range findWorkflowPins(repositoryRoot, "actions/setup-python", "python-version") {
+		pins = append(pins, Pin{Source: ciPin.source, Version: ciPin.version})
 	}
 
 	installed, err := installedPythonVersion()

@@ -16,7 +16,8 @@ func writePythonVersion(t *testing.T, dir, version string) {
 }
 
 func TestPythonDetector_NoPin(t *testing.T) {
-	res, err := NewPythonDetector().Detect(t.TempDir())
+	dir := t.TempDir()
+	res, err := NewPythonDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,7 +30,7 @@ func TestPythonDetector_EmptyFileTreatedAsAbsent(t *testing.T) {
 	dir := t.TempDir()
 	writePythonVersion(t, dir, "")
 
-	res, err := NewPythonDetector().Detect(dir)
+	res, err := NewPythonDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +56,7 @@ func TestPythonDetector_PrefixAgreesWithPatchInstall(t *testing.T) {
 	dir := t.TempDir()
 	writePythonVersion(t, dir, majorMinor)
 
-	res, err := NewPythonDetector().Detect(dir)
+	res, err := NewPythonDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -76,7 +77,7 @@ jobs:
           python-version: "3.11.7"
 `)
 
-	res, err := NewPythonDetector().Detect(dir)
+	res, err := NewPythonDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -93,7 +94,7 @@ func TestPythonDetector_ReportsMissingInstalledToolchain(t *testing.T) {
 	dir := t.TempDir()
 	writePythonVersion(t, dir, "3.12.1")
 
-	res, err := NewPythonDetector().Detect(dir)
+	res, err := NewPythonDetector().Detect(dir, dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
