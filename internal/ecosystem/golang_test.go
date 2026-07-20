@@ -1,6 +1,7 @@
 package ecosystem
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,6 +84,26 @@ func TestGoDetector_NoWorkflowFileOmitsCIPin(t *testing.T) {
 		if p.Source == "ci" || strings.Contains(p.Source, "workflows") {
 			t.Fatalf("did not expect a ci pin, got %+v", res.Pins)
 		}
+	}
+}
+
+func TestGoDetector_ReportsMissingInstalledToolchain(t *testing.T) {
+	original := resolveGoVersion
+	resolveGoVersion = func() (string, error) { return "", errors.New("executable file not found") }
+	t.Cleanup(func() { resolveGoVersion = original })
+
+	dir := t.TempDir()
+	writeGoMod(t, dir, "go 1.24")
+
+	res, err := NewGoDetector().Detect(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res == nil || !res.Drift {
+		t.Fatalf("expected missing installed Go to cause drift, got %+v", res)
+	}
+	if got := res.Pins[len(res.Pins)-1]; got.Source != "installed" || got.Version != "not found" {
+		t.Fatalf("installed pin = %+v, want installed/not found", got)
 	}
 }
 
