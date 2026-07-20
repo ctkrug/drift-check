@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pinset | Keep every toolchain pin in agreement</title>
+  <meta name="description" content="Audit Node, Python, Go, and Ruby version pins against GitHub Actions and installed toolchains with one read-only command.">
+  <meta property="og:title" content="Pinset | Keep every toolchain pin in agreement">
+  <meta property="og:description" content="Find toolchain version drift across a polyglot monorepo before it breaks CI.">
+  <meta name="theme-color" content="#dce8e1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23dce8e1'/%3E%3Cpath d='M13 22V13h9M42 13h9v9M51 42v9h-9M22 51h-9v-9' fill='none' stroke='%23175cd3' stroke-width='5'/%3E%3Ccircle cx='32' cy='32' r='7' fill='%23c2411d'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #dce8e1;
+      --surface-1: #f4f7f2;
+      --surface-2: #c8d7d0;
+      --text: #16211d;
+      --muted: #465c53;
+      --accent: #175cd3;
+      --support: #c2411d;
+      --success: #16734a;
+      --danger: #b42318;
+      --edge: rgba(22, 33, 29, 0.22);
+      --shadow: 0 4px 0 rgba(22, 33, 29, 0.16), 0 24px 60px rgba(23, 92, 211, 0.12);
+      --display: "Space Grotesk", "Avenir Next", sans-serif;
+      --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 78% 18%, rgba(23, 92, 211, 0.13), transparent 32rem),
+        linear-gradient(rgba(22, 33, 29, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 33, 29, 0.055) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, 32px 32px, 32px 32px, auto;
+      font: 400 16px/1.7 var(--mono);
+    }
+
+    a { color: var(--accent); }
+    a:focus-visible { outline: 3px solid var(--support); outline-offset: 4px; }
+    .shell { width: min(1280px, calc(100% - 48px)); margin: 0 auto; }
+
+    .masthead {
+      min-height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--edge);
+    }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text);
+      text-decoration: none;
+      font: 700 25px/1 var(--display);
+      letter-spacing: -0.04em;
+    }
+
+    .reticle { width: 34px; height: 34px; position: relative; flex: 0 0 auto; }
+    .reticle svg { display: block; width: 100%; height: 100%; }
+    .reticle::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 3px;
+      width: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(23, 92, 211, 0.65);
+      animation: calibrate 1.2s 180ms ease-out both;
+    }
+
+    .version-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      min-height: calc(100vh - 84px);
+      display: grid;
+      grid-template-columns: minmax(0, 0.72fr) minmax(660px, 1.28fr);
+      gap: clamp(40px, 6vw, 88px);
+      align-items: center;
+      padding: 64px 0 80px;
+    }
+
+    .eyebrow, .panel-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 18px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before { content: ""; width: 28px; height: 2px; background: var(--accent); }
+    h1, h2, h3 { font-family: var(--display); letter-spacing: -0.045em; }
+    h1 { max-width: 11ch; margin: 0; font-size: clamp(52px, 6vw, 88px); line-height: 0.96; }
+    .lede { max-width: 55ch; margin: 28px 0 32px; color: var(--muted); font-size: 17px; }
+
+    .cta {
+      min-height: 50px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 0 22px;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      color: var(--surface-1);
+      background: var(--accent);
+      box-shadow: 0 4px 0 #0e3d92;
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform 140ms ease-out, box-shadow 140ms ease-out, background 180ms ease-out;
+    }
+
+    .cta:hover { background: #104fb9; transform: translateY(-2px); box-shadow: 0 6px 0 #0e3d92; }
+    .cta:active { transform: translateY(3px); box-shadow: 0 1px 0 #0e3d92; }
+
+    .terminal {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--edge);
+      border-radius: 10px;
+      background: #17211e;
+      box-shadow: var(--shadow);
+      color: #dce8e1;
+      transform: rotate(0.35deg);
+      transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+    }
+
+    .terminal:hover { transform: rotate(0deg) translateY(-3px); box-shadow: 0 6px 0 rgba(22, 33, 29, 0.16), 0 32px 70px rgba(23, 92, 211, 0.18); }
+    .terminal-head { position: relative; display: flex; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid rgba(220, 232, 225, 0.18); color: #9eb8ac; font-size: 12px; }
+    .terminal-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: sweep 1.4s 260ms ease-out both; }
+    .terminal pre { margin: 0; padding: clamp(22px, 2.5vw, 32px); overflow-x: auto; font: 500 clamp(10px, 0.76vw, 12px)/1.9 var(--mono); }
+    .prompt { color: #72a2f5; }
+    .ok { color: #6fd3a3; }
+    .drift { color: #ff9b73; }
+    .summary { color: #f3cf72; }
+
+    .section { padding: 96px 0; border-top: 1px solid var(--edge); }
+    .section h2 { max-width: 13ch; margin: 0 0 28px; font-size: clamp(38px, 5vw, 62px); line-height: 1; }
+    .section-intro { max-width: 66ch; margin: 0 0 48px; color: var(--muted); }
+
+    .proof-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px; }
+    .proof-item {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 18px;
+      padding: 28px;
+      border: 1px solid var(--edge);
+      border-radius: 10px;
+      background: rgba(244, 247, 242, 0.82);
+      box-shadow: 0 4px 0 rgba(22, 33, 29, 0.1);
+      transition: transform 180ms ease-out, background 180ms ease-out;
+    }
+    .proof-item:hover { transform: translateY(-3px); background: var(--surface-1); }
+    .proof-item:nth-child(3) { grid-column: 2; }
+    .proof-item:nth-child(4) { grid-column: 1; grid-row: 2; }
+    .proof-number { color: var(--support); font: 700 28px/1 var(--display); }
+    .proof-item h3 { margin: 0 0 8px; font-size: 23px; }
+    .proof-item p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .install-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 48px; align-items: start; }
+    .install-copy { min-width: 0; }
+    .command-well { min-width: 0; max-width: 100%; padding: 24px; border: 1px solid var(--edge); border-radius: 10px; background: var(--surface-2); box-shadow: inset 0 2px 6px rgba(22, 33, 29, 0.12); overflow-x: auto; }
+    .command-well code { white-space: nowrap; color: #0e3d92; font-weight: 600; }
+    .install-copy p { margin-top: 0; color: var(--muted); }
+
+    .faq { display: grid; grid-template-columns: 0.68fr 1.32fr; gap: 56px; }
+    .faq-list { border-top: 1px solid var(--edge); }
+    .faq article { padding: 24px 0; border-bottom: 1px solid var(--edge); }
+    .faq h3 { margin: 0 0 10px; font-size: 21px; letter-spacing: -0.025em; }
+    .faq p { margin: 0; color: var(--muted); }
+
+    footer { min-height: 112px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-top: 1px solid var(--edge); color: var(--muted); font-size: 13px; }
+    footer a { min-height: 44px; display: inline-flex; align-items: center; font-weight: 600; text-underline-offset: 4px; }
+
+    @keyframes calibrate { from { transform: translateX(0); opacity: 0; } 20% { opacity: 1; } to { transform: translateX(26px); opacity: 0; } }
+    @keyframes sweep { from { transform: translateX(-100%); opacity: 0; } 30% { opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      h1 { max-width: 12ch; }
+      .proof-grid, .install-grid, .faq { grid-template-columns: 1fr; }
+      .proof-item:nth-child(3), .proof-item:nth-child(4) { grid-column: auto; grid-row: auto; }
+    }
+
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 32px, 1280px); }
+      .masthead { min-height: 70px; }
+      .version-label { display: none; }
+      .hero { padding: 48px 0 64px; gap: 48px; }
+      h1 { font-size: clamp(45px, 14vw, 60px); }
+      .lede { font-size: 15px; }
+      .cta { width: 100%; min-height: 52px; }
+      .terminal { transform: none; margin-right: -16px; border-radius: 10px 0 0 10px; }
+      .terminal:hover { transform: translateY(-2px); }
+      .terminal pre { padding: 22px 18px; }
+      .section { padding: 72px 0; }
+      .proof-item { grid-template-columns: 40px 1fr; padding: 22px 18px; }
+      .faq { gap: 16px; }
+      footer { align-items: flex-start; flex-direction: column; justify-content: center; padding: 28px 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead shell">
+    <a class="wordmark" href="#top" aria-label="Pinset home">
+      <span class="reticle" aria-hidden="true">
+        <svg viewBox="0 0 40 40" role="img">
+          <path d="M4 13V4h9M27 4h9v9M36 27v9h-9M13 36H4v-9" fill="none" stroke="#175cd3" stroke-width="3"/>
+          <circle cx="20" cy="20" r="5" fill="#c2411d"/>
+        </svg>
+      </span>
+      Pinset
+    </a>
+    <span class="version-label">Read-only monorepo audit</span>
+  </header>
+
+  <main id="top">
+    <section class="hero shell" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">Four runtimes, one report</p>
+        <h1 id="hero-title">Catch toolchain drift before CI does.</h1>
+        <p class="lede">Pinset gives platform engineers one read-only audit of Node, Python, Go, and Ruby pins across nested projects, GitHub Actions, and installed toolchains.</p>
+        <a class="cta" href="https://github.com/ctkrug/drift-check">View on GitHub <span aria-hidden="true">→</span></a>
+      </div>
+
+      <div class="terminal" aria-label="Example Pinset terminal report">
+        <div class="terminal-head"><span>PINSET / AUDIT 0042</span><span>4 ECOSYSTEMS</span></div>
+        <pre><span class="prompt">$ drift-check .</span>
+Go      go.mod=1.24  .github/workflows/ci.yml=1.23  installed=1.24.3               <span class="drift">⚠ DRIFT</span>
+Node    .nvmrc=20.11.0  .github/workflows/ci.yml=20.11.0  installed=20.11.0        <span class="ok">✓</span>
+Python  .python-version=3.12  .github/workflows/ci.yml=3.11  installed=3.12.1     <span class="drift">⚠ DRIFT</span>
+Ruby    .ruby-version=3.3.0  Gemfile.lock=3.3.0  installed=3.3.0                  <span class="ok">✓</span>
+
+<span class="summary">2 drift(s) found across 4 ecosystem(s).</span></pre>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="shell">
+        <p class="panel-label">What the command settles</p>
+        <h2>One answer from every version claim.</h2>
+        <p class="section-intro">A toolchain upgrade can touch a pin file, several CI jobs, and every developer machine. Pinset reads those claims together, retains duplicate setup steps, and reports the source of each value instead of returning a bare pass or fail.</p>
+
+        <div class="proof-grid">
+          <article class="proof-item"><span class="proof-number">01</span><div><h3>Scan the whole monorepo</h3><p>Find supported pins in nested packages and services while skipping `.git`, `node_modules`, and `vendor` trees.</p></div></article>
+          <article class="proof-item"><span class="proof-number">02</span><div><h3>Keep CI in the comparison</h3><p>Read every matching setup step from root GitHub Actions workflows, even when the language pin lives several directories down.</p></div></article>
+          <article class="proof-item"><span class="proof-number">03</span><div><h3>Treat missing tools as drift</h3><p>Show `installed=not found` when a pinned runtime is absent. An incomplete machine never receives a clean report.</p></div></article>
+          <article class="proof-item"><span class="proof-number">04</span><div><h3>Use the same result in scripts</h3><p>Choose aligned terminal output or `--json`. Both modes exit `1` on drift and `0` when every detected claim agrees.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="shell install-grid">
+        <div>
+          <p class="panel-label">Install and run</p>
+          <h2>Audit a repo in two commands.</h2>
+        </div>
+        <div class="install-copy">
+          <p>Pinset ships as a static Go binary. Install the tagged module, then run the `drift-check` command at the root of the repository you want to inspect.</p>
+          <div class="command-well"><code>go install github.com/ctkrug/drift-check@latest</code></div>
+          <div class="command-well" style="margin-top: 12px"><code>drift-check .</code></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="shell faq">
+        <div>
+          <p class="panel-label">Field notes</p>
+          <h2>Common questions.</h2>
+        </div>
+        <div class="faq-list">
+          <article><h3>What is toolchain version drift?</h3><p>It is a disagreement between runtime versions named by repository files, CI configuration, or the tools installed on a machine. Pinset lists each source and value on the same report.</p></article>
+          <article><h3>How do I check version pins in a polyglot monorepo?</h3><p>Run `drift-check .` at the repository root. Pinset recursively finds supported project pins and compares them with root GitHub Actions setup steps and commands on `PATH`.</p></article>
+          <article><h3>Which version files does Pinset support?</h3><p>Version 1 reads `go.mod`, `.nvmrc`, `.python-version`, `.ruby-version`, and the `RUBY VERSION` stanza in `Gemfile.lock`.</p></article>
+          <article><h3>Can Pinset run in CI?</h3><p>Yes. Its text and JSON modes return a nonzero exit code when drift exists, so a normal workflow step can block a merge without a separate configuration file.</p></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <span>Pinset is open source under the MIT license.</span>
+    <a href="https://apps.charliekrug.com">More by Charlie Krug → apps.charliekrug.com</a>
+  </footer>
+</body>
+</html>
