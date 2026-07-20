@@ -1,86 +1,57 @@
-# Vision
+# Pinset vision
 
 ## The problem
 
-A polyglot monorepo — Node services next to a Python data pipeline next to
-a Go CLI, maybe a Ruby admin app — accumulates version pins in a dozen
-uncoordinated places: `.nvmrc`, `.python-version`, `go.mod`, `.ruby-version`,
-`Gemfile.lock`, GitHub Actions workflow files, Dockerfiles, `mise`/`asdf`
-configs. Every one of these is a promise about what version a tool should
-run at. Nothing checks that the promises agree.
+A polyglot monorepo can name one runtime version in a language pin file,
+another in GitHub Actions, and a third on a maintainer's machine. Those claims
+live far enough apart that a routine upgrade often changes only one of them.
+The mismatch stays quiet until a build fails or a contributor gets different
+behavior from CI.
 
-Drift accumulates silently: someone bumps `go.mod` to require 1.24 for a new
-stdlib feature but forgets the CI workflow still pins `setup-go@1.23`.
-Someone else has 1.22 in their local shell because they haven't reinstalled
-in months. The build passes locally, fails in CI, or — worse — passes in
-CI and behaves subtly differently in production. Nobody notices until it
-breaks something, and by then the drift could be months old and span
-several files nobody thought to cross-check.
+## Who Pinset serves
 
-This is exactly the complaint a Pulumi engineer raised publicly: three
-different Go versions in play (module file, CI, local shell) with nothing
-to catch the mismatch before it caused a real problem.
+Pinset is for platform engineers and senior maintainers responsible for Node,
+Python, Go, and Ruby projects in one repository. They need a quick answer to
+"do our toolchain versions agree?" without migrating the team to a new version
+manager or maintaining a custom audit script.
 
-## Who it's for
+## Product boundary
 
-Engineers and tech leads on polyglot codebases — teams with more than one
-language's toolchain in the same repo — who want a fast, honest answer to
-"are our version pins actually consistent right now?" without adopting a
-new version manager, writing a bespoke script, or trusting institutional
-memory.
+Pinset performs read-only reconciliation. It discovers supported pin files,
+reads every matching GitHub Actions setup step, checks installed toolchains,
+and reports each disagreement. It does not install runtimes, rewrite files, or
+choose the correct version for the team.
 
-## The core idea
+That narrow boundary keeps adoption small: run one static binary, inspect one
+report, and use its exit code as a CI gate.
 
-**Read-only reconciliation, not enforcement.** `drift-check` doesn't manage
-versions, install toolchains, or rewrite pin files. It has exactly one job:
-find every version claim in a repo — from pin files, from CI config, and
-from what's actually installed — and tell you where they disagree. It is a
-detector, not an actor. That's what makes it adoptable in five minutes: no
-migration, no new mandatory tool, no changed workflow. Point it at a repo,
-get a report, done.
+## Design principles
 
-## Key design decisions
+- **One repository view.** Nested projects and root workflows belong in the
+  same audit, with source paths preserved in the output.
+- **Missing is evidence.** If a pinned toolchain is not installed, the report
+  says `installed=not found` and counts drift.
+- **Every claim participates.** All matching workflow pins are retained, and
+  every version pin is compared with every other pin in its result.
+- **Broad pins remain useful.** A major-minor pin such as `1.24` agrees with an
+  installed patch such as `1.24.3`; two different exact patches do not agree.
+- **Text and JSON share a contract.** Human and machine-readable output use the
+  same results and the same exit status.
+- **No runtime dependency.** Go and the standard library produce a single
+  static binary that can audit other language runtimes without depending on
+  npm, pip, or Bundler.
 
-- **Single static binary, Go stdlib-first.** No runtime, no package
-  manager, no install step beyond downloading one file. This matters
-  precisely because the tool audits *other* language runtimes — it can't
-  itself depend on npm or pip being correctly set up.
-- **Detector interface per ecosystem.** Each language is an isolated
-  `ecosystem.Detector` implementation returning a common `Result` shape.
-  Adding a fifth ecosystem (Rust, Java, whatever) means writing one file,
-  not touching the reconciliation or reporting logic.
-- **Three-way reconciliation, not two-way.** Comparing "pin file vs.
-  installed" alone misses the more insidious case: CI has its own
-  independent pin that neither the pin file nor a local dev's shell agree
-  with. All three sources are first-class.
-- **Prefix-based version comparison.** A `go.mod` directive like `go 1.24`
-  is a floor, not an exact pin — it should agree with any `1.24.x` install.
-  Comparison logic treats the shorter version string as a prefix match
-  against the longer one, so this doesn't produce false-positive drift.
-- **Exit code as the CI contract.** Non-zero exit on any drift found. This
-  is what makes the tool useful as a CI gate, not just an interactive
-  report — "catch it before merge," not just "catch it eventually."
-- **No config file for v1.** Zero-config by default (walk cwd, detect
-  what's there). Config only gets added later if real usage demands it —
-  premature configurability is a cost, not a feature.
+## Version 1 contract
 
-## What "v1 done" looks like
+Given a repository containing any supported Node, Python, Go, or Ruby pin,
+Pinset produces a deterministic report that:
 
-Running `drift-check` in a real polyglot monorepo (Node + Python + Go +
-Ruby, each with its own pin file and a GitHub Actions CI config that pins
-versions independently) produces a single report that:
+- names each file, workflow, and installed source it checked;
+- marks each ecosystem result as matching or drifted;
+- reports nested projects with repository-relative paths;
+- emits valid JSON when `--json` is set;
+- exits nonzero exactly when drift or a scan failure occurs;
+- never mutates the audited repository.
 
-- Lists every ecosystem detected, with every version source found for it
-  (pin file, CI, installed).
-- Clearly marks which ecosystems agree and which drift, with the specific
-  disagreeing sources named (not just "drift detected" — *which* sources
-  and *what* versions).
-- Exits non-zero if and only if drift was found, so it's usable unmodified
-  as a CI step.
-- Runs in well under a second on a normal-sized monorepo, since it's just
-  file parsing and a handful of subprocess calls — no network access, no
-  package registry queries.
-
-That's the whole product. Everything else — JSON output, more ecosystems,
-Dockerfile/`mise` support, a `--fix` suggestion mode — is explicitly
-post-v1 and tracked in `BACKLOG.md` as stretch epics, not blockers.
+The committed end-to-end fixture and release workflow exercise that contract
+against the compiled binary and tagged static builds.
