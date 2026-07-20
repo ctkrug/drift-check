@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/ctkrug/drift-check/internal/ecosystem"
 	"github.com/ctkrug/drift-check/internal/report"
@@ -43,7 +45,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	root := "."
-	if fs.NArg() > 0 {
+	if fs.NArg() > 1 {
+		fmt.Fprint(stdout, usageText)
+		return 2
+	}
+	if fs.NArg() == 1 {
 		root = fs.Arg(0)
 	}
 
@@ -54,15 +60,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ecosystem.NewRubyDetector(),
 	}
 
+	projectRoots, err := ecosystem.FindProjectRoots(root)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift-check: %s\n", err)
+		return 1
+	}
+
 	var results []*ecosystem.Result
-	for _, d := range detectors {
-		res, err := d.Detect(root)
-		if err != nil {
-			fmt.Fprintf(stderr, "drift-check: %s: %v\n", d.Name(), err)
-			return 1
-		}
-		if res != nil {
-			results = append(results, res)
+	for _, projectRoot := range projectRoots {
+		for _, d := range detectors {
+			res, err := d.Detect(projectRoot)
+			if err != nil {
+				fmt.Fprintf(stderr, "drift-check: %s: %v\n", d.Name(), err)
+				return 1
+			}
+			if res != nil {
+				prefixResultSources(res, root, projectRoot)
+				results = append(results, res)
+			}
 		}
 	}
 
@@ -85,4 +100,26 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// prefixResultSources identifies pins belonging to nested projects without
+// obscuring the shared local "installed" runtime source.
+func prefixResultSources(res *ecosystem.Result, root, projectRoot string) {
+	rel, err := filepath.Rel(root, projectRoot)
+	if err != nil || rel == "." {
+		return
+	}
+	prefix := filepath.ToSlash(rel)
+	for i := range res.Pins {
+		if res.Pins[i].Source != "installed" {
+			res.Pins[i].Source = prefix + "/" + res.Pins[i].Source
+		}
+	}
+	if res.Drift {
+		parts := make([]string, len(res.Pins))
+		for i, pin := range res.Pins {
+			parts[i] = pin.Source + " says " + pin.Version
+		}
+		res.Detail = strings.Join(parts, ", ")
+	}
 }
