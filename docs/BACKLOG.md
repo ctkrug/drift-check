@@ -85,7 +85,7 @@ A real polyglot monorepo has pin files nested in subdirectories, missing
 toolchains, and occasionally malformed files. The tool needs to survive
 all of that without crashing or lying.
 
-- [ ] **Walk subdirectories to find pin files in nested
+- [x] **Walk subdirectories to find pin files in nested
       packages/services.**
   - A fixture with `services/api/go.mod` and `services/web/.nvmrc` (no
     pin files at repo root) is fully detected when drift-check is run
@@ -95,19 +95,19 @@ all of that without crashing or lying.
     (verified by timing or by planting a decoy pin file inside one and
     confirming it's excluded).
 
-- [ ] **Handle a missing toolchain gracefully.**
+- [x] **Handle a missing toolchain gracefully.**
   - Running drift-check in a repo with a `.ruby-version` file but no
     `ruby` binary on `PATH` reports the pin-file version with the
     installed source explicitly marked "not found," rather than crashing
     or silently omitting the ecosystem.
 
-- [ ] **Handle malformed pin files with a clear error, not a panic.**
+- [x] **Handle malformed pin files with a clear error, not a panic.**
   - A `go.mod` with no `go` directive line is skipped for that repo (no
     Go result), not a crash.
   - An empty `.nvmrc` file is treated as absent, not as a pin to an empty
     string.
 
-- [ ] **Add an end-to-end CLI integration test against a fixture
+- [x] **Add an end-to-end CLI integration test against a fixture
       monorepo.**
   - A committed `testdata/` fixture with all four ecosystems (some
     drifted, some not, one nested) is run through the actual compiled
@@ -116,12 +116,12 @@ all of that without crashing or lying.
 
 ## Epic 4: Distribution polish
 
-- [ ] **Add install and quickstart instructions to the README.**
+- [x] **Add install and quickstart instructions to the README.**
   - README documents `go install github.com/ctkrug/drift-check@latest`
     and shows the exact example output already in the README, verified to
     match real CLI output byte-for-byte after Epic 1 ships.
 
-- [ ] **Build and attach release binaries on tagged releases.**
+- [x] **Build and attach release binaries on tagged releases.**
   - Pushing a `v*` tag triggers a GitHub Actions job that cross-compiles
     for `linux/amd64`, `darwin/amd64`, and `darwin/arm64`, and attaches
     the binaries to a GitHub Release.
