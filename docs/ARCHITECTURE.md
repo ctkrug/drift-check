@@ -15,17 +15,24 @@ internal/ecosystem/
   python.go                        Python detector
   ruby.go                          Ruby detector (two pin files: .ruby-version, Gemfile.lock)
   workflow.go                      GitHub Actions workflow pin parser, shared by all 4 detectors
+  walker.go                        Recursive project discovery, skips VCS/dependency trees
 internal/report/
   report.go                        text (Write) and JSON (WriteJSON) rendering
+testdata/monorepo/                 Stable fixture and golden report for compiled-binary e2e
+.github/workflows/release.yml      Tagged static-binary release build
 docs/
   VISION.md, BACKLOG.md, ARCHITECTURE.md
 ```
 
 ## Data flow
 
-1. `main.run()` builds one `ecosystem.Detector` per language and calls
-   `Detect(root)` on each.
-2. Each detector independently:
+1. `main.run()` calls `ecosystem.FindProjectRoots(root)`, which walks nested
+   directories containing recognized pin files and ignores `.git`,
+   `node_modules`, and `vendor` trees.
+2. For each discovered project root, `main.run()` builds one
+   `ecosystem.Detector` per language and calls `Detect(projectRoot)`. Nested
+   pin sources are reported relative to the requested root.
+3. Each detector independently:
    - reads its pin file(s) (`go.mod`, `.nvmrc`, `.python-version`,
      `.ruby-version`/`Gemfile.lock`) — returns `nil, nil` if absent, so a
      missing ecosystem is silently skipped, not an error;
@@ -34,13 +41,14 @@ docs/
      `.github/workflows/*.yml` and adds a `ci`-sourced pin if found;
    - shells out to the installed toolchain (`go version`, `node -v`,
      `python3 --version`, `ruby -v`) and adds an `installed`-sourced pin;
+     a missing executable is represented as `installed=not found`;
    - calls the shared `reconcile(pins)` (defined in `golang.go`, used by all
      four detectors) to compare every pin against the first and set
      `Result.Drift` / `Result.Detail`.
-3. `main.run()` collects the non-nil `*ecosystem.Result`s and hands them to
+4. `main.run()` collects the non-nil `*ecosystem.Result`s and hands them to
    `report.Write` (text) or `report.WriteJSON` (`--json`), which return the
    count of drifted ecosystems.
-4. Exit code: `0` if nothing drifted (including "no pin files found" at
+5. Exit code: `0` if nothing drifted (including "no pin files found" at
    all), `1` if anything did, `2` on a flag-parsing error.
 
 ## Key design points
@@ -78,10 +86,10 @@ Update `internal/report/testdata/golden_report.txt` with
 `UPDATE_GOLDEN=1 go test ./internal/report/...` if you intentionally change
 report formatting.
 
-## Known gaps (tracked in BACKLOG.md)
+## Reliability checks
 
-- No recursive directory walk yet — only the given root is scanned, so
-  nested `services/*/go.mod`-style monorepos aren't fully covered (Epic 3).
-- A missing toolchain (e.g. no `ruby` on `PATH`) is currently just omitted
-  as a pin rather than reported as "not found" (Epic 3).
-- No `go install`-ability or release binaries yet (Epic 4).
+- `e2e_test.go` builds the actual binary and runs it against the committed
+  nested fixture using deterministic fake toolchains, comparing output to a
+  golden file.
+- The release workflow cross-compiles static Linux and macOS binaries only
+  for version tags; normal CI continues to run build, vet, format, and tests.
