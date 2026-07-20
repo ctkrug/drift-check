@@ -54,8 +54,8 @@ docs/
 ## Key design points
 
 - **`ecosystem.Detector` interface**: adding a fifth ecosystem means one new
-  file implementing `Name()` + `Detect(root)`; no changes to `main.go` or
-  `report`.
+  file implementing `Name()` + `Detect(root)` and one registration in
+  `main.go`; the report package remains unchanged.
 - **`workflow.go` is a narrow, purpose-built line scanner**, not a general
   YAML parser — it only understands the specific "list item with a `uses:`
   key and a sibling `with:` map" shape GitHub Actions steps take. This
@@ -92,4 +92,5 @@ report formatting.
   nested fixture using deterministic fake toolchains, comparing output to a
   golden file.
 - The release workflow cross-compiles static Linux and macOS binaries only
-  for version tags; normal CI continues to run build, vet, format, and tests.
+  for version tags, then publishes all assets from one job; normal CI
+  continues to run build, vet, format, and tests.
