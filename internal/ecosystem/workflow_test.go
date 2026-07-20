@@ -108,6 +108,23 @@ jobs:
 	}
 }
 
+func TestFindWorkflowPins_DoesNotMatchActionPrefixLookalike(t *testing.T) {
+	dir := t.TempDir()
+	writeWorkflow(t, dir, "ci.yml", `
+jobs:
+  test:
+    steps:
+      - uses: actions/setup-goose@v1
+        with:
+          go-version: "99.99"
+`)
+
+	pins := findWorkflowPins(dir, "actions/setup-go", "go-version")
+	if len(pins) != 0 {
+		t.Fatalf("expected no pin from lookalike action, got %+v", pins)
+	}
+}
+
 func TestFindWorkflowPins_MultipleFilesBothScanned(t *testing.T) {
 	dir := t.TempDir()
 	writeWorkflow(t, dir, "ci.yml", `
