@@ -1,7 +1,7 @@
 # Backlog
 
-Epics are ordered for build sequencing. Epic 1's first story is the wow
-moment — it must be reachable with only Epic 1 built.
+Epics are ordered for build sequencing. Epic 1's first story is the first
+useful report and must be reachable with only Epic 1 built.
 
 ## Epic 1: Core reconciliation and the wow-moment demo
 
@@ -79,7 +79,7 @@ pin file vs. installed vs. CI, not just presence detection.
     consistently formatted (no column misalignment from long version
     strings), verified against a golden-file snapshot.
 
-## Epic 3: Monorepo scale and robustness
+## Epic 3: Monorepo scale and reliability
 
 A real polyglot monorepo has pin files nested in subdirectories, missing
 toolchains, and occasionally malformed files. The tool needs to survive
@@ -89,7 +89,7 @@ all of that without crashing or lying.
       packages/services.**
   - A fixture with `services/api/go.mod` and `services/web/.nvmrc` (no
     pin files at repo root) is fully detected when drift-check is run
-    from the repo root — both ecosystems appear in the report with the
+    from the repo root; both ecosystems appear in the report with the
     correct relative source paths.
   - A `.git`, `node_modules`, or `vendor` directory is not descended into
     (verified by timing or by planting a decoy pin file inside one and
@@ -101,7 +101,7 @@ all of that without crashing or lying.
     installed source explicitly marked "not found," rather than crashing
     or silently omitting the ecosystem.
 
-- [x] **Handle malformed pin files with a clear error, not a panic.**
+- [x] **Handle incomplete pin files without a panic.**
   - A `go.mod` with no `go` directive line is skipped for that repo (no
     Go result), not a crash.
   - An empty `.nvmrc` file is treated as absent, not as a pin to an empty
@@ -118,8 +118,7 @@ all of that without crashing or lying.
 
 - [x] **Add install and quickstart instructions to the README.**
   - README documents `go install github.com/ctkrug/drift-check@latest`
-    and shows the exact example output already in the README, verified to
-    match real CLI output byte-for-byte after Epic 1 ships.
+    and shows a representative four-language report.
 
 - [x] **Build and attach release binaries on tagged releases.**
   - Pushing a `v*` tag triggers a GitHub Actions job that cross-compiles
@@ -127,3 +126,18 @@ all of that without crashing or lying.
     the binaries to a GitHub Release.
   - A downloaded release binary run with `--help` produces the same usage
     text as running from source.
+
+## Epic 5: Closeout correctness and product presentation
+
+- [x] **Compare every version pin pair.**
+  - A broad `1.24` pin cannot hide disagreement between exact `1.24.1`
+    and `1.24.2` pins.
+
+- [x] **Apply repository workflows to nested projects.**
+  - A nested `services/api/go.mod` is reconciled with setup steps in the
+    root `.github/workflows` directory.
+  - Every matching setup step in every workflow file is retained.
+
+- [x] **Package Pinset as a portfolio project.**
+  - Positioning, design tokens, README, architecture, landing page, and
+    launch notes use one product name and one audience brief.
