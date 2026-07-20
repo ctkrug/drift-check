@@ -88,3 +88,20 @@ jobs:
 		t.Errorf("detail %q missing expected versions", res.Detail)
 	}
 }
+
+func TestNodeDetector_ReportsMissingInstalledToolchain(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	dir := t.TempDir()
+	writeNvmrc(t, dir, "20.11.0")
+
+	res, err := NewNodeDetector().Detect(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res == nil || !res.Drift {
+		t.Fatalf("expected missing installed Node to cause drift, got %+v", res)
+	}
+	if got := res.Pins[len(res.Pins)-1]; got.Source != "installed" || got.Version != "not found" {
+		t.Fatalf("installed pin = %+v, want installed/not found", got)
+	}
+}
