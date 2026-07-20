@@ -87,7 +87,7 @@ func parseWorkflowFile(path, actionPrefix, inputKey string) (string, error) {
 		}
 
 		if key, value, ok := splitKV(rest); ok && key == "uses" {
-			stepActive = strings.HasPrefix(value, actionPrefix)
+			stepActive = isActionReference(value, actionPrefix)
 			stepIndent = indent
 			withActive = false
 			continue
@@ -109,6 +109,14 @@ func parseWorkflowFile(path, actionPrefix, inputKey string) (string, error) {
 		return "", err
 	}
 	return "", nil
+}
+
+// isActionReference accepts a setup action only when actionPrefix is the
+// complete action name followed by its required @ref delimiter. A raw prefix
+// would incorrectly match unrelated actions such as actions/setup-goose.
+func isActionReference(value, actionPrefix string) bool {
+	return strings.HasPrefix(value, actionPrefix) &&
+		len(value) > len(actionPrefix) && value[len(actionPrefix)] == '@'
 }
 
 // stripListMarker returns the effective indent of a YAML line's content and
