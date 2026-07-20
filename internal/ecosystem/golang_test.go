@@ -1,7 +1,6 @@
 package ecosystem
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,9 +87,7 @@ func TestGoDetector_NoWorkflowFileOmitsCIPin(t *testing.T) {
 }
 
 func TestGoDetector_ReportsMissingInstalledToolchain(t *testing.T) {
-	original := resolveGoVersion
-	resolveGoVersion = func() (string, error) { return "", errors.New("executable file not found") }
-	t.Cleanup(func() { resolveGoVersion = original })
+	t.Setenv("PATH", t.TempDir())
 
 	dir := t.TempDir()
 	writeGoMod(t, dir, "go 1.24")
