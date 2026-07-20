@@ -53,9 +53,18 @@ you the truth about what's already there.
 $ drift-check [flags] [path]
 ```
 
-Defaults to the current directory. Exits `0` when nothing drifts (or no
-pin files are found at all), `1` when at least one ecosystem drifts — so
-it drops straight into a CI job as a gate:
+Install the latest tagged release with Go:
+
+```
+go install github.com/ctkrug/drift-check@latest
+drift-check .
+```
+
+Or download the matching static binary from the project's GitHub Releases.
+Defaults to the current directory. The scan walks nested project directories
+and skips `.git`, `node_modules`, and `vendor`. Exits `0` when nothing drifts
+(or no pin files are found at all), `1` when at least one ecosystem drifts —
+so it drops straight into a CI job as a gate:
 
 ```yaml
 - run: go run github.com/ctkrug/drift-check@latest
@@ -73,7 +82,8 @@ Flags:
   tracked as distinct pins so a mismatch between them is named directly.
 - **Installed-toolchain resolution**: shells out to each ecosystem's version
   command (`go version`, `node -v`, `python3 --version`, `ruby -v`) and
-  normalizes the output for comparison.
+  normalizes the output for comparison. A missing executable is reported as
+  `installed=not found` and causes drift rather than being silently omitted.
 - **CI pin extraction**: parses `.github/workflows/*.yml` for
   `actions/setup-go`, `actions/setup-node`, `actions/setup-python`, and
   `ruby/setup-ruby`, pulling the pinned version out of each. A workflow file
@@ -85,14 +95,10 @@ Flags:
 - **Prefix-based version comparison**: a `go.mod` directive like `go 1.24`
   agrees with any installed `1.24.x`, matching the same rule across all
   four ecosystems.
-
-## Not yet implemented
-
-- **Monorepo-aware scanning**: currently checks the given directory only,
-  not nested `packages/`/`services/` subdirectories.
-- Graceful "toolchain not found" reporting (currently that source is
-  omitted rather than explicitly marked).
-- `go install` / release binaries.
+- **Monorepo discovery**: recursively finds supported pin files and labels
+  nested sources (for example, `services/api/go.mod`) in the report.
+- **Release binaries**: version tags publish static binaries for Linux amd64,
+  macOS amd64, and macOS arm64.
 
 See [`docs/BACKLOG.md`](docs/BACKLOG.md) for the full build plan.
 
@@ -104,11 +110,9 @@ can drop anywhere — no interpreter, no package manager, no install step.
 
 ## Status
 
-Core reconciliation across all four ecosystems is done and tested (Epics 1
-and 2 in the backlog). Monorepo directory-walking, robustness against
-missing/malformed input, and distribution polish are next. See
-[`docs/VISION.md`](docs/VISION.md) for the design and
-[`docs/BACKLOG.md`](docs/BACKLOG.md) for the build plan.
+Core reconciliation, monorepo discovery, robustness checks, and distribution
+automation are done and tested. See [`docs/VISION.md`](docs/VISION.md) for the
+design and [`docs/BACKLOG.md`](docs/BACKLOG.md) for the delivery checklist.
 
 ## License
 
