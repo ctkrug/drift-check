@@ -139,3 +139,20 @@ func TestParseGemfileLockRubyVersion_NoStanza(t *testing.T) {
 		t.Fatalf("expected empty version when no RUBY VERSION stanza, got %q", v)
 	}
 }
+
+func TestRubyDetector_ReportsMissingInstalledToolchain(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	dir := t.TempDir()
+	writeRubyVersion(t, dir, "3.3.0")
+
+	res, err := NewRubyDetector().Detect(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res == nil || !res.Drift {
+		t.Fatalf("expected missing installed Ruby to cause drift, got %+v", res)
+	}
+	if got := res.Pins[len(res.Pins)-1]; got.Source != "installed" || got.Version != "not found" {
+		t.Fatalf("installed pin = %+v, want installed/not found", got)
+	}
+}
