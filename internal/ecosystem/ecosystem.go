@@ -2,6 +2,11 @@
 // implements, and the reconciled result the report package renders.
 package ecosystem
 
+import (
+	"errors"
+	"os/exec"
+)
+
 // Pin is a single version claim from one source (a pin file, CI config,
 // or the installed toolchain).
 type Pin struct {
@@ -27,4 +32,23 @@ type Detector interface {
 	// Detect scans root and returns a reconciled Result, or nil if this
 	// ecosystem has no pin files present in root.
 	Detect(root string) (*Result, error)
+}
+
+const missingToolchainVersion = "not found"
+
+// appendInstalledPin turns an absent executable into an explicit pin so an
+// audit can distinguish an unavailable toolchain from one it never checked.
+// Other command failures remain errors: silently ignoring them could produce
+// a misleading clean report.
+func appendInstalledPin(pins []Pin, version string, err error) ([]Pin, error) {
+	if err == nil {
+		if version != "" {
+			pins = append(pins, Pin{Source: "installed", Version: version})
+		}
+		return pins, nil
+	}
+	if errors.Is(err, exec.ErrNotFound) {
+		return append(pins, Pin{Source: "installed", Version: missingToolchainVersion}), nil
+	}
+	return nil, err
 }

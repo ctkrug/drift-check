@@ -44,8 +44,10 @@ func (d *GoDetector) Detect(root string) (*Result, error) {
 		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
 	}
 
-	if installed, err := installedGoVersion(); err == nil && installed != "" {
-		pins = append(pins, Pin{Source: "installed", Version: installed})
+	installed, err := installedGoVersion()
+	pins, err = appendInstalledPin(pins, installed, err)
+	if err != nil {
+		return nil, err
 	}
 
 	res := &Result{Ecosystem: d.Name(), Pins: pins}

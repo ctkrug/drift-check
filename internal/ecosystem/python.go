@@ -1,6 +1,7 @@
 package ecosystem
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,8 +37,10 @@ func (d *PythonDetector) Detect(root string) (*Result, error) {
 		pins = append(pins, Pin{Source: ciPins[0].source, Version: ciPins[0].version})
 	}
 
-	if installed, err := installedPythonVersion(); err == nil && installed != "" {
-		pins = append(pins, Pin{Source: "installed", Version: installed})
+	installed, err := installedPythonVersion()
+	pins, err = appendInstalledPin(pins, installed, err)
+	if err != nil {
+		return nil, err
 	}
 
 	res := &Result{Ecosystem: d.Name(), Pins: pins}
@@ -51,14 +54,21 @@ var pythonVersionOutputRe = regexp.MustCompile(`(\d+\.\d+(?:\.\d+)?)`)
 // `python --version`, and extracts the version. Python 2 and old 3.x wrote
 // the version to stderr, so both streams are checked.
 func installedPythonVersion() (string, error) {
+	var lastErr error
 	for _, bin := range []string{"python3", "python"} {
 		out, err := exec.Command(bin, "--version").CombinedOutput()
 		if err != nil {
+			if !errors.Is(err, exec.ErrNotFound) {
+				lastErr = err
+			}
 			continue
 		}
 		if m := pythonVersionOutputRe.FindStringSubmatch(string(out)); m != nil {
 			return m[1], nil
 		}
 	}
-	return "", nil
+	if lastErr != nil {
+		return "", lastErr
+	}
+	return "", exec.ErrNotFound
 }
