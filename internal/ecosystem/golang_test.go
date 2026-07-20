@@ -164,3 +164,21 @@ func TestReconcile_NoDriftWhenCompatible(t *testing.T) {
 		t.Fatal("expected no drift for compatible versions")
 	}
 }
+
+func TestReconcile_CompareEveryPinPair(t *testing.T) {
+	pins := []Pin{
+		{Source: "go.mod", Version: "1.24"},
+		{Source: "ci", Version: "1.24.1"},
+		{Source: "installed", Version: "1.24.2"},
+	}
+
+	drift, detail := reconcile(pins)
+	if !drift {
+		t.Fatal("expected drift between the two exact patch versions")
+	}
+	for _, want := range []string{"ci says 1.24.1", "installed says 1.24.2"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("detail %q missing %q", detail, want)
+		}
+	}
+}

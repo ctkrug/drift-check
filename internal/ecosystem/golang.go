@@ -91,11 +91,12 @@ func reconcile(pins []Pin) (drift bool, detail string) {
 	if len(pins) < 2 {
 		return false, ""
 	}
-	base := pins[0]
-	for _, p := range pins[1:] {
-		if !versionsAgree(base.Version, p.Version) {
-			drift = true
-			break
+	for i := 0; i < len(pins)-1 && !drift; i++ {
+		for j := i + 1; j < len(pins); j++ {
+			if !versionsAgree(pins[i].Version, pins[j].Version) {
+				drift = true
+				break
+			}
 		}
 	}
 	if !drift {
