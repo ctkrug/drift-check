@@ -98,6 +98,39 @@ func TestRun_HelpExitsZero(t *testing.T) {
 	}
 }
 
+func TestRun_ReportsNestedPinsWithRelativeSources(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "services/api/go.mod", "module example.com/api\n\ngo 1.99\n")
+	writeFile(t, dir, "packages/web/.nvmrc", "20.11.0\n")
+	writeFile(t, dir, "vendor/ignored/go.mod", "module ignored\n\ngo 1.99\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{dir}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	out := stdout.String()
+	for _, want := range []string{"services/api/go.mod", "packages/web/.nvmrc"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report missing nested source %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "vendor/ignored/go.mod") {
+		t.Errorf("report included skipped vendor pin:\n%s", out)
+	}
+}
+
+func TestRun_RejectsMultiplePaths(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"first", "second"}, &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2", code)
+	}
+	if !strings.Contains(stdout.String(), "drift-check [flags] [path]") {
+		t.Errorf("expected usage text, got %q", stdout.String())
+	}
+}
+
 // TestRun_WowMoment reproduces the headline demo from docs/BACKLOG.md: a
 // go.mod, a CI workflow, and the installed toolchain each naming a
 // different Go version, all three surfaced by name in one report.
